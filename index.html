@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie Attack Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div id="start-menu">
+        <h1>Zombie Attack</h1>
+        <button id="start-button">Start Game</button>
+        <p>Instructions: Use arrow keys to move and spacebar to attack on desktop, or touch to move and attack on mobile.</p>
+    </div>
+
+    <button id="fullscreen-button">Full Screen</button>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="retry-menu" style="display:none;">
+        <h2>Game Over</h2>
+        <p id="final-score"></p>
+        <button id="retry-button">Retry</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
