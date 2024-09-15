@@ -19,10 +19,9 @@ let shootDelay = 300; // Delay between shots in milliseconds
 let zombieImage = new Image();
 zombieImage.src = '103086822.png'; // Replace with the actual path to your zombie image
 
-let playerImage = new Image();  // Add this line for player image
+let playerImage = new Image();
 playerImage.src = 'WhatsApp Image 2024-09-14 at 21.46.30_8707e13b.png'; // Replace with actual path to your player image
 
-// Preload images and sounds
 let bulletImage = new Image();
 bulletImage.src = 'hqdefault-removebg-preview.png'; // Replace with actual path to your bullet image
 
@@ -43,17 +42,20 @@ fullscreenButton.addEventListener('click', toggleFullScreen);
 function toggleFullScreen() {
     if (!document.fullscreenElement) {
         // Request full screen for the canvas's parent element or the whole body
-        document.documentElement.requestFullscreen()
-            .then(() => {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            })
-            .catch(err => {
-                console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-            });
+        if (canvas.requestFullscreen) {
+            canvas.requestFullscreen();
+        } else if (canvas.webkitRequestFullscreen) { /* Safari */
+            canvas.webkitRequestFullscreen();
+        } else if (canvas.msRequestFullscreen) { /* IE11 */
+            canvas.msRequestFullscreen();
+        }
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
     } else {
         // Exit full-screen mode
         document.exitFullscreen();
+        canvas.width = 360; // Reset to default when exiting full-screen
+        canvas.height = 640;
     }
 }
 
@@ -63,15 +65,14 @@ window.addEventListener('resize', () => {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
     } else {
-        canvas.width = 360; // Default size when not in full-screen
+        canvas.width = 360;
         canvas.height = 640;
     }
 });
 
 window.addEventListener('keydown', (e) => {
     keys[e.key] = true;
-    
-    
+
     // Add shooting mechanic for "f"
     if (e.key === 'f' && gameRunning && Date.now() - lastShot > shootDelay) {
         shootBullet();
@@ -86,18 +87,24 @@ window.addEventListener('keyup', (e) => {
 // Separate controls for mobile and desktop
 if (isMobile()) {
     // Touch-based controls for mobile
-    canvas.addEventListener('touchstart', function(e) {
+    canvas.addEventListener('touchmove', function(e) {
         let touchX = e.touches[0].clientX;
         let touchY = e.touches[0].clientY;
 
-        if (touchY < canvas.height / 2) player.y -= player.speed;
-        else player.y += player.speed;
+        // Move player based on touch position
+        player.x = touchX - player.width / 2;  // Center player on touch
+        player.y = touchY - player.height / 2; // Center player on touch
+    });
 
-        if (touchX < canvas.width / 2) player.x -= player.speed;
-        else player.x += player.speed;
-
+    canvas.addEventListener('touchstart', function(e) {
         shootBullet();  // Shoot bullet on touch
-    });}
+    });
+}
+
+function isMobile() {
+    return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 function startGame() {
     document.getElementById('start-menu').style.display = 'none';
     canvas.style.display = 'block';
@@ -139,7 +146,7 @@ function gameLoop() {
     updateBullets(); // Move bullets
     renderGame();
     drawBullets(); // Draw bullets on canvas
-    requestAnimationFrame(gameLoop);
+    setTimeout(() => requestAnimationFrame(gameLoop), 1000 / 60); // Run at 60 FPS
 }
 
 // Update game state
@@ -223,7 +230,6 @@ function spawnZombies(level) {
     }
 }
 
-
 // Update zombies
 function updateZombies() {
     zombies.forEach((zombie, index) => {
@@ -256,7 +262,8 @@ function drawZombies() {
         }
     });
 }
-//draw player
+
+// Draw player
 function drawPlayer() {
     if (playerImage.complete) {  // Ensure the image is loaded
         ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
@@ -267,10 +274,10 @@ function drawPlayer() {
     }
 }
 
-//draw bullets
+// Draw bullets
 function drawBullets() {
     bullets.forEach(bullet => {
-        if (bulletImage.complete) {  // Ensure the bullet image is loaded
+        if (bulletImage.complete) {  // Ensure the image is loaded
             ctx.drawImage(bulletImage, bullet.x, bullet.y, bullet.width, bullet.height);
         } else {
             // Fallback if the image isn't ready yet
@@ -280,7 +287,45 @@ function drawBullets() {
     });
 }
 
+// Update bullets
+function updateBullets() {
+    bullets.forEach((bullet, index) => {
+        bullet.y -= bullet.speed;
 
+        zombies.forEach(zombie => {
+            if (checkCollision(bullet, zombie)) {
+                zombie.health -= 20;
+                bullets.splice(index, 1);
+            }
+        });
+
+        // Remove bullet if off screen
+        if (bullet.y < 0) {
+            bullets.splice(index, 1);
+        }
+    });
+}
+
+// Shoot bullet
+function shootBullet() {
+    bullets.push({
+        x: player.x + player.width / 2 - 5,  // Adjust bullet spawn position
+        y: player.y,
+        width: 10,
+        height: 20,
+        speed: 7,
+    });
+
+    playAttackSound();
+}
+
+// Check for collisions between two objects
+function checkCollision(obj1, obj2) {
+    return obj1.x < obj2.x + obj2.width &&
+           obj1.x + obj1.width > obj2.x &&
+           obj1.y < obj2.y + obj2.height &&
+           obj1.y + obj1.height > obj2.y;
+}
 
 // Level up
 function levelUp() {
@@ -291,31 +336,47 @@ function levelUp() {
 // Start boss level
 function startBossLevel() {
     isBossLevel = true;
-    boss = { x: 120, y: 50, width: 120, height: 120, health: 200 };
-}
-
-// Update boss
-function updateBoss() {
-    // Boss attacks and movement logic
-    if (checkCollision(player, boss)) {
-        player.health -= 20;
-    }
-    if (boss.health <= 0) {
-        gameOver = true;
-        endGame();
-    }
+    boss = {
+        x: canvas.width / 2 - 100,
+        y: 50,
+        width: 200,
+        height: 200,
+        health: 500,
+        speed: 2,
+    };
 }
 
 // Draw boss
 function drawBoss() {
-    ctx.fillStyle = "red";
+    ctx.fillStyle = 'purple';
     ctx.fillRect(boss.x, boss.y, boss.width, boss.height);
+    ctx.fillStyle = "#fff";
+    ctx.font = "20px Arial";
+    ctx.fillText(`Boss Health: ${boss.health}`, 10, 80);
 }
 
-// Check collision between two objects
-function checkCollision(a, b) {
-    return a.x < b.x + b.width && a.x + a.width > b.x &&
-           a.y < b.y + b.height && a.y + a.height > b.y;
+// Update boss
+function updateBoss() {
+    boss.y += boss.speed;
+    if (boss.y > canvas.height - boss.height || boss.y < 0) {
+        boss.speed *= -1;
+    }
+
+    if (checkCollision(player, boss)) {
+        player.health -= 20;
+    }
+
+    bullets.forEach((bullet, index) => {
+        if (checkCollision(bullet, boss)) {
+            boss.health -= 10;
+            bullets.splice(index, 1);
+        }
+    });
+
+    if (boss.health <= 0) {
+        isBossLevel = false;
+        levelUp();
+    }
 }
 
 // Play background music
@@ -333,40 +394,3 @@ function playAttackSound() {
 function playZombieDeathSound() {
     zombieDeathSound.play();
 }
-
-// Handle bullets
-function shootBullet() {
-    bullets.push({
-        x: player.x + player.width / 2 - 5, // Adjust to center the bullet
-        y: player.y,
-        width: 50,  // Set this to your bullet image's width
-        height: 30, // Set this to your bullet image's height
-        speed: 5
-    });
-    playAttackSound();
-}
-
-
-// Update bullets
-function updateBullets() {
-    bullets.forEach((bullet, index) => {
-        bullet.y -= bullet.speed;
-        if (bullet.y < 0) {
-            bullets.splice(index, 1); // Remove bullet if it goes off screen
-        }
-
-        // Check collision with zombies
-        zombies.forEach((zombie, zIndex) => {
-            if (checkCollision(bullet, zombie)) {
-                zombie.health -= 10;
-                bullets.splice(index, 1); // Remove bullet
-                if (zombie.health <= 0) {
-                    zombies.splice(zIndex, 1); // Remove zombie
-                    score += 10;
-                    playZombieDeathSound();
-                }
-            }
-        });
-    });
-}
-
