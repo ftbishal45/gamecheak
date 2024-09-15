@@ -29,19 +29,19 @@ let backgroundMusic = new Audio('path_to_your_background_music.mp3');
 let attackSound = new Audio('machin-gun-mgs2-sound-effect-8-11006.mp3');
 let zombieDeathSound = new Audio('path_to_your_zombie_death_sound.mp3');
 
-// Add event listeners for game start and retry
-document.getElementById('start-button').addEventListener('click', startGame);
-document.getElementById('retry-button').addEventListener('click', restartGame);
+// Function to add event listeners to buttons
+function setupEventListeners() {
+    document.getElementById('start-button').addEventListener('click', startGame);
+    document.getElementById('retry-button').addEventListener('click', restartGame);
+    document.getElementById('fullscreen-button').addEventListener('click', toggleFullScreen);
+}
 
-// Get the full-screen button element
-const fullscreenButton = document.getElementById('fullscreen-button');
+// Call setupEventListeners initially and also on game restart
+setupEventListeners();
 
-// Add event listener for the full-screen button
-fullscreenButton.addEventListener('click', toggleFullScreen);
-
+// Function to ensure proper fullscreen handling
 function toggleFullScreen() {
     if (!document.fullscreenElement) {
-        // Request full screen for the canvas's parent element or the whole body
         if (canvas.requestFullscreen) {
             canvas.requestFullscreen();
         } else if (canvas.webkitRequestFullscreen) { /* Safari */
@@ -52,8 +52,13 @@ function toggleFullScreen() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
     } else {
-        // Exit full-screen mode
-        document.exitFullscreen();
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) { /* Safari */
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) { /* IE11 */
+            document.msExitFullscreen();
+        }
         canvas.width = 360; // Reset to default when exiting full-screen
         canvas.height = 640;
     }
@@ -119,6 +124,7 @@ function restartGame() {
     gameRunning = true;
     gameOver = false;
     initializeGame();
+    setupEventListeners(); // Reattach event listeners on restart
 }
 
 // Game initialization
@@ -139,14 +145,13 @@ function initializeGame() {
     gameLoop();
 }
 
-
 function gameLoop() {
     if (!gameRunning || gameOver) return;
     updateGame();
     updateBullets(); // Move bullets
     renderGame();
     drawBullets(); // Draw bullets on canvas
-    setTimeout(() => requestAnimationFrame(gameLoop), 1000 / 60); // Run at 60 FPS
+    requestAnimationFrame(gameLoop); // Run at 60 FPS
 }
 
 // Update game state
@@ -194,14 +199,18 @@ function renderGame() {
     ctx.fillText(`Level: ${level}`, 10, 50);
 }
 
-// End the game
+// Function to reset fullscreen mode when game ends
 function endGame() {
     canvas.style.display = 'none';
     document.getElementById('final-score').innerText = `Your score: ${score}`;
     document.getElementById('retry-menu').style.display = 'block';
     backgroundMusic.pause();
+    backgroundMusic.currentTime = 0; // Reset background music
+    // Exit fullscreen if necessary
+    if (document.fullscreenElement) {
+        document.exitFullscreen().catch(err => console.log(err));
+    }
 }
-
 // Player movement
 function movePlayer() {
     if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
